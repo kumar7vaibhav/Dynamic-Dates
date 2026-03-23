@@ -1,4 +1,4 @@
-# Dynamic Relative Dates
+# Dynamic Dates
 
 An Obsidian plugin to insert natural language dates that dynamically render relative to today's date (e.g., `@Tomorrow`, `@Next Monday`).
 
@@ -12,7 +12,7 @@ An Obsidian plugin to insert natural language dates that dynamically render rela
 ### Community Plugins (Recommended)
 1. Open Obsidian **Settings**.
 2. Go to **Community plugins** and ensure "Safe mode" is turned off.
-3. Click **Browse** and search for "Dynamic Relative Dates".
+3. Click **Browse** and search for "Dynamic Dates".
 4. Install and enable the plugin.
 
 ### Manual Installation
