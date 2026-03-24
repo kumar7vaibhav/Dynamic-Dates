@@ -61,10 +61,78 @@ export default class DynamicDatesPlugin extends Plugin {
 		await this.saveData(this.settings);
 	}
 
-	replaceDatesInElement(element: HTMLElement) {
-		const regex = /@\[\[(.*?)\]\]/g;
+	/**
+	 * Create a styled date bubble span from a date string.
+	 */
+	private createDateBubble(dateStr: string): HTMLSpanElement {
+		const targetDate = window.moment(dateStr, this.settings.dateFormat);
+		const relativeStr = targetDate.calendar(null, {
+			sameDay: '[Today]',
+			nextDay: '[Tomorrow]',
+			nextWeek: 'dddd',
+			lastDay: '[Yesterday]',
+			lastWeek: '[Last] dddd',
+			sameElse: 'MMM Do YYYY'
+		});
 
-		// We need to carefully replace text nodes so we don't destroy HTML structure
+		const todayDiff = targetDate.clone().startOf('day').diff(window.moment().startOf('day'), 'days');
+
+		let bgColor = this.settings.currentDateBgColor;
+		let textColor = this.settings.currentDateTextColor;
+
+		if (todayDiff < 0) {
+			bgColor = this.settings.pastDateBgColor;
+			textColor = this.settings.pastDateTextColor;
+		} else if (todayDiff > 0) {
+			bgColor = this.settings.futureDateBgColor;
+			textColor = this.settings.futureDateTextColor;
+		}
+
+		const span = document.createElement('span');
+		span.addClass('dynamic-date-bubble');
+		span.setText(relativeStr);
+		span.title = `Absolute Date: ${dateStr}`;
+
+		span.style.backgroundColor = bgColor;
+		span.style.color = textColor;
+		span.style.padding = '0px 6px';
+		span.style.borderRadius = '4px';
+		span.style.cursor = 'pointer';
+
+		span.onclick = (e) => {
+			e.preventDefault();
+			this.app.workspace.openLinkText(dateStr, '', e.ctrlKey || e.metaKey);
+		};
+
+		return span;
+	}
+
+	replaceDatesInElement(element: HTMLElement) {
+		// --- Strategy 1: Handle DOM-rendered internal links ---
+		// Obsidian converts [[date]] into <a class="internal-link"> before
+		// the post-processor runs, so we look for text "@" followed by an <a>.
+		const links = Array.from(element.querySelectorAll('a.internal-link'));
+		for (const link of links) {
+			const prevNode = link.previousSibling;
+			if (!prevNode || prevNode.nodeType !== Node.TEXT_NODE) continue;
+
+			const textContent = prevNode.nodeValue || '';
+			if (!textContent.endsWith('@')) continue;
+
+			// Extract date from the link
+			const dateStr = (link as HTMLAnchorElement).getAttribute('data-href') || link.textContent || '';
+			if (!dateStr) continue;
+
+			// Strip the trailing '@' from the text node
+			prevNode.nodeValue = textContent.slice(0, -1);
+
+			// Replace the <a> with a styled bubble
+			const bubble = this.createDateBubble(dateStr);
+			link.parentNode?.replaceChild(bubble, link);
+		}
+
+		// --- Strategy 2: Fallback for raw @[[...]] text (edge cases) ---
+		const regex = /@\[\[(.*?)\]\]/g;
 		const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null);
 		const textNodes: Text[] = [];
 		let node;
@@ -85,47 +153,8 @@ export default class DynamicDatesPlugin extends Plugin {
 				const beforeStr = text.substring(lastIndex, match.index);
 				if (beforeStr) fragment.appendChild(document.createTextNode(beforeStr));
 
-				const dateStr = match[1] as string; // user-configured format
-				const targetDate = window.moment(dateStr, this.settings.dateFormat);
-				const relativeStr = targetDate.calendar(null, {
-					sameDay: '[Today]',
-					nextDay: '[Tomorrow]',
-					nextWeek: 'dddd',
-					lastDay: '[Yesterday]',
-					lastWeek: '[Last] dddd',
-					sameElse: 'MMM Do YYYY'
-				});
-
-				const todayDiff = targetDate.clone().startOf('day').diff(window.moment().startOf('day'), 'days');
-
-				let bgColor = this.settings.currentDateBgColor;
-				let textColor = this.settings.currentDateTextColor;
-
-				if (todayDiff < 0) {
-					bgColor = this.settings.pastDateBgColor;
-					textColor = this.settings.pastDateTextColor;
-				} else if (todayDiff > 0) {
-					bgColor = this.settings.futureDateBgColor;
-					textColor = this.settings.futureDateTextColor;
-				}
-
-				const span = document.createElement('span');
-				span.addClass('dynamic-date-bubble');
-				span.setText(relativeStr);
-				span.title = `Absolute Date: ${dateStr}`;
-
-				span.style.backgroundColor = bgColor;
-				span.style.color = textColor;
-				span.style.padding = '0px 6px';
-				span.style.borderRadius = '4px';
-				span.style.cursor = 'pointer';
-
-				span.onclick = (e) => {
-					e.preventDefault();
-					this.app.workspace.openLinkText(dateStr, '', e.ctrlKey || e.metaKey);
-				};
-
-				fragment.appendChild(span);
+				const dateStr = match[1] as string;
+				fragment.appendChild(this.createDateBubble(dateStr));
 				lastIndex = regex.lastIndex;
 			}
 
