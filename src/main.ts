@@ -21,6 +21,19 @@ declare global {
 	}
 }
 
+/**
+ * Returns a relative day suffix like "(in 3 days)" or "(5 days ago)".
+ * Returns empty string for today.
+ */
+export function formatRelativeDaySuffix(todayDiff: number): string {
+	const absDiff = Math.abs(todayDiff);
+	if (todayDiff === 0) return '';
+	if (todayDiff === 1) return '(in 1 day)';
+	if (todayDiff === -1) return '(1 day ago)';
+	if (todayDiff > 0) return `(in ${absDiff} days)`;
+	return `(${absDiff} days ago)`;
+}
+
 export default class DynamicDatesPlugin extends Plugin {
 	settings: DynamicDatesSettings;
 
@@ -88,9 +101,12 @@ export default class DynamicDatesPlugin extends Plugin {
 			textColor = this.settings.futureDateTextColor;
 		}
 
+		const daySuffix = formatRelativeDaySuffix(todayDiff);
+		const displayText = daySuffix ? `${relativeStr} ${daySuffix}` : relativeStr;
+
 		const span = document.createElement('span');
 		span.addClass('dynamic-date-bubble');
-		span.setText(relativeStr);
+		span.setText(displayText);
 		span.title = `Absolute Date: ${dateStr}`;
 
 		span.style.backgroundColor = bgColor;
@@ -244,7 +260,11 @@ class DateSuggest extends EditorSuggest<string> {
 			sameElse: 'MMM Do YYYY'
 		}) as string;
 
-		el.setText(`${relativeStr} (${formattedTarget})`);
+		const todayDiff = targetDate.clone().startOf('day').diff(window.moment().startOf('day'), 'days');
+		const daySuffix = formatRelativeDaySuffix(todayDiff);
+		const displayText = daySuffix ? `${relativeStr} ${daySuffix}` : relativeStr;
+
+		el.setText(`${displayText} (${formattedTarget})`);
 	}
 
 	selectSuggestion(suggestion: string, evt: MouseEvent | KeyboardEvent): void {

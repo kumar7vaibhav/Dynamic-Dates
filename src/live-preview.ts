@@ -8,7 +8,7 @@ import {
     ViewUpdate,
     WidgetType,
 } from '@codemirror/view';
-import DynamicDatesPlugin from './main';
+import DynamicDatesPlugin, { formatRelativeDaySuffix } from './main';
 
 export function createDynamicDateViewPlugin(plugin: DynamicDatesPlugin) {
     class DynamicDateWidget extends WidgetType {
@@ -69,6 +69,9 @@ export function createDynamicDateViewPlugin(plugin: DynamicDatesPlugin) {
 
                     const todayDiff = targetDate.clone().startOf('day').diff(window.moment().startOf('day'), 'days');
 
+                    const daySuffix = formatRelativeDaySuffix(todayDiff);
+                    const displayText = daySuffix ? `${relativeStr} ${daySuffix}` : relativeStr;
+
                     let widgetBgColor = plugin.settings.currentDateBgColor;
                     let widgetTextColor = plugin.settings.currentDateTextColor;
 
@@ -84,7 +87,7 @@ export function createDynamicDateViewPlugin(plugin: DynamicDatesPlugin) {
                         start,
                         end,
                         Decoration.replace({
-                            widget: new DynamicDateWidget(relativeStr, dateStr, widgetBgColor, widgetTextColor),
+                            widget: new DynamicDateWidget(displayText, dateStr, widgetBgColor, widgetTextColor),
                         })
                     );
                 }
